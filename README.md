@@ -24,20 +24,27 @@ and a fairly accurate time remaining variable.
 This tool is capable of handling file uploads of up to 2GB in size, without the need to tweak
 the max_upload and timeout variables on your httpd.
 
+This tool only works on Chrome and Firefox, but falls back to a normal file upload form on other browsers.
+
 If you want to deploy this as-is, the variables you need to worry about are in the top of    
-	* index.html (for js variables)    
-	* inc/bigUpload.php (for the folder paths--make sure they're writable)
+	* index.html
+	* inc/bigUpload.php
 
 
 Please feel free to contribute!
 
 -------------------------------------------------------------------------
 
+v 1.2    
+* Cleaned up the code quite a lot    
+* Added pause/resume functionality    
+* Added fallback for unsupported browsers
+
 v 1.0.1    
-*Added time remaining calculator    
-*Response from php script is now a json object, allowing for error processing    
-*Minor script changes and bugfixes    
-*Better comments
+* Added time remaining calculator    
+* Response from php script is now a json object, allowing for error processing    
+* Minor script changes and bugfixes    
+* Better comments
 
 v 1.0.0    
-*Initial version
+* Initial version
