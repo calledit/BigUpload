@@ -2,7 +2,7 @@
 
 BigUpload 
 
-version 1.0.1    
+version 1.2    
 Created by: Sean Thielen <sean@p27.us>
 
 -------------------------------------------------------------------------
