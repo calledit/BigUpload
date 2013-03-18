@@ -26,9 +26,9 @@ the max_upload and timeout variables on your httpd.
 
 This tool only works on Chrome and Firefox, but falls back to a normal file upload form on other browsers.
 
-If you want to deploy this as-is, the variables you need to worry about are in the top of    
-	* index.html
-	* inc/bigUpload.php
+If you want to deploy this as-is, the variables you need to worry about are in the top of        
+* js/bigUpload.js    
+* inc/bigUpload.php    
 
 
 Please feel free to contribute!
