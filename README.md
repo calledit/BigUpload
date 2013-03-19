@@ -4,6 +4,7 @@ BigUpload
 
 version 1.2    
 Created by: Sean Thielen <sean@p27.us>
+[BigUpload: Uploading really big files in the browser](http://p27.us/2013/03/bigupload-uploading-really-big-files-in-the-browser/)
 
 -------------------------------------------------------------------------
 
@@ -30,8 +31,10 @@ If you want to deploy this as-is, the variables you need to worry about are in t
 * js/bigUpload.js    
 * inc/bigUpload.php    
 
+And you need to be sure to make /BigUpload/files and /BigUpload/files/tmp writeable
 
-Please feel free to contribute!
+
+Please feel free to contribute and use this in your projects!
 
 -------------------------------------------------------------------------
 
