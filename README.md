@@ -3,7 +3,7 @@
 BigUpload 
 
 version 1.2    
-Created by: Sean Thielen <sean@p27.us>
+Created by: Sean Thielen <sean@p27.us>    
 [BigUpload: Uploading really big files in the browser](http://p27.us/2013/03/bigupload-uploading-really-big-files-in-the-browser/)
 
 -------------------------------------------------------------------------
