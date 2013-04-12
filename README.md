@@ -38,6 +38,11 @@ Please feel free to contribute and use this in your projects!
 
 -------------------------------------------------------------------------
 
+v 1.2.1
+* Option to pass additional parameters to the upload script
+* Optional callback function on success
+* Contributed by Matt (atomiku)
+
 v 1.2    
 * Cleaned up the code quite a lot    
 * Added pause/resume functionality    

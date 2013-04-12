@@ -40,6 +40,10 @@ function bigUpload () {
 		//Path to the php script for handling the uploads
 		'scriptPath': 'inc/bigUpload.php',
 
+		//Additional URL variables to be passed to the script path
+		//ex: &foo=bar
+		'scriptPathParams': '',
+
 		//Size of chunks to upload (in bytes)
 		//Default: 1MB
 		'chunkSize': 1000000,
@@ -60,6 +64,11 @@ function bigUpload () {
 		'key': 0,
 		'timeStart': 0,
 		'totalTime': 0
+	};
+
+	//Success callback
+	this.success = function(response) {
+
 	};
 
 	parent = this;
@@ -104,7 +113,7 @@ function bigUpload () {
 	this.processFiles = function() {
 
 		//If the user is using an unsupported browser, the form just submits as a regular form
-		if(!Blob.prototype.slice) {
+		if (!window.File || !window.FileReader || !window.FileList || !window.Blob) {
 			this.$(this.settings.formId).submit();
 			return;
 		}
@@ -117,7 +126,7 @@ function bigUpload () {
 		//Reset the background color of the progress bar in case it was changed by any earlier errors
 		//Change the Upload button to a Pause button
 		this.$(this.settings.progressBarField).style.backgroundColor = this.settings.progressBarColor;
-		this.$(this.settings.responseField).textContent = '';
+		this.$(this.settings.responseField).textContent = 'Uploading...';
 		this.$(this.settings.submitButton).value = 'Pause';
 
 		//Alias the file input object to this.uploadData
@@ -172,7 +181,7 @@ function bigUpload () {
 			//this.uploadData.key is then populated with the filename to use for subsequent requests
 			//When this method sends a valid filename (i.e. key != 0), the server will just append the data being sent to that file.
 			xhr = new XMLHttpRequest();
-			xhr.open("POST", parent.settings.scriptPath + '?action=upload&key=' + parent.uploadData.key, true);
+			xhr.open("POST", parent.settings.scriptPath + '?action=upload&key=' + parent.uploadData.key + parent.settings.scriptPathParams, true);
 			xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 
 			xhr.onreadystatechange = function() {
@@ -240,6 +249,8 @@ function bigUpload () {
 					//Change the submit button text so it's ready for another upload and spit out a sucess message
 					parent.$(parent.settings.submitButton).value = 'Start Upload';
 					parent.printResponse('File uploaded successfully.', false);
+
+					parent.success(response);
 				}
 			};
 
@@ -314,6 +325,7 @@ function bigUpload () {
 			//Estimate the time remaining by finding the average time per chunk upload and
 			//multiplying it by the number of chunks remaining, then convert into seconds
 			var timeLeft = Math.ceil((this.uploadData.totalTime / progress) * (this.uploadData.numberOfChunks - progress) / 100);
+			console.log(Math.ceil(((this.uploadData.totalTime / progress) * this.settings.chunkSize) / 1024) + 'kb/s');
 
 			//Update this.settings.timeRemainingField with the estimated time remaining
 			this.$(this.settings.timeRemainingField).textContent = timeLeft + ' seconds remaining';
