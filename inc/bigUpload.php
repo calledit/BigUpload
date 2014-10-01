@@ -146,8 +146,16 @@ class BigUpload
 	 */
 	public function uploadFile() {
 		// Make sure the total file we're writing to hasn't surpassed the file size limit
-		if (file_exists($this->getTempDirectory() . $this->getTempName())) {
-			if (filesize($this->getTempDirectory() . $this->getTempName()) > self::MAX_SIZE) {
+		$tmpPath = $this->getTempDirectory() . $this->getTempName();
+		if (@file_exists($tmpPath)) {
+			$fsize = @filesize($tmpPath);
+			if ($fsize === false) {
+				return array(
+					'errorStatus' => 553,
+					'errorText' => 'File part access error.'
+				);
+			}
+			if ($fsize > self::MAX_SIZE) {
 				$this->abortUpload();
 				return array(
 					'errorStatus' => 413,
@@ -157,13 +165,31 @@ class BigUpload
 		}
 
 		// Open the raw POST data from php://input
-		$fileData = file_get_contents('php://input');
+		$fileData = @file_get_contents('php://input');
+		if ($fileData === false) {
+			return array(
+				'errorStatus' => 552,
+				'errorText' => 'File part upload error.'
+			);
+		}
 
 		// Write the actual chunk to the larger file
-		$handle = fopen($this->getTempDirectory() . $this->getTempName(), 'a');
+		$handle = @fopen($tmpPath, 'a');
+		if ($handle === false) {
+			return array(
+				'errorStatus' => 553,
+				'errorText' => 'File part access error.'
+			);
+		}
 
-		fwrite($handle, $fileData);
-		fclose($handle);
+		$rv = @fwrite($handle, $fileData);
+		@fclose($handle);
+		if ($rv === false) {
+			return array(
+				'errorStatus' => 554,
+				'errorText' => 'File part write error.'
+			);
+		}
 
 		return array(
 			'key' => $this->getTempName(),
@@ -176,7 +202,7 @@ class BigUpload
 	 * @return string JSON object with result of deletion
 	 */
 	public function abortUpload() {
-		if (unlink($this->getTempDirectory() . $this->getTempName())) {
+		if (@unlink($this->getTempDirectory() . $this->getTempName())) {
 			return array(
 				'errorStatus' => 0
 			);
@@ -197,7 +223,7 @@ class BigUpload
 	public function finishUpload($finalName) {
 		$dstName = sanitizeFileName($finalName);
 		$dstPath = $this->getMainDirectory() . $dstName;
-		if (rename($this->getTempDirectory() . $this->getTempName(), $dstPath)) {
+		if (@rename($this->getTempDirectory() . $this->getTempName(), $dstPath)) {
 			return array(
 				'errorStatus' => 0,
 				'fileName' => $dstName
@@ -231,7 +257,14 @@ class BigUpload
 		$size = $files['size'];
 		$tempName = $files['tmp_name'];
 
-		if (filesize($tempName) > self::MAX_SIZE) {
+		$fsize = @filesize($tempName);
+		if ($fsize === false) {
+			return array(
+				'errorStatus' => 553,
+				'errorText' => 'File part access error.'
+			);
+		}
+		if ($fsize > self::MAX_SIZE) {
 			return array(
 				'errorStatus' => 413,
 				'errorText' => 'File is too large.'
@@ -239,7 +272,7 @@ class BigUpload
 		}
 
 		$dstPath = $this->getMainDirectory() . $name;
-		if (move_uploaded_file($tempName, $dstPath)) {
+		if (@move_uploaded_file($tempName, $dstPath)) {
 			return array(
 				'errorStatus' => 0,
 				'fileName' => $dstName,
