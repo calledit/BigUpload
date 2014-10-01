@@ -1,4 +1,45 @@
 <?php
+
+
+/**
+ * Sanitizes a filename replacing whitespace with dashes
+ *
+ * Removes special characters that are illegal in filenames on certain
+ * operating systems and special characters requiring special escaping
+ * to manipulate at the command line. Replaces spaces and consecutive
+ * dashes with a single dash. Trim period, dash and underscore from beginning
+ * and end of filename.
+ *
+ * @param string $filename The filename to be sanitized
+ * @return string The sanitized filename
+ */
+function sanitizeFileName($filename) {
+	// Remove special accented characters - ie. sí.
+	$clean_name = strtr($filename, array('Š' => 'S','Ž' => 'Z','š' => 's','ž' => 'z','Ÿ' => 'Y','À' => 'A','Á' => 'A','Â' => 'A','Ã' => 'A','Ä' => 'A','Å' => 'A','Ç' => 'C','È' => 'E','É' => 'E','Ê' => 'E','Ë' => 'E','Ì' => 'I','Í' => 'I','Î' => 'I','Ï' => 'I','Ñ' => 'N','Ò' => 'O','Ó' => 'O','Ô' => 'O','Õ' => 'O','Ö' => 'O','Ø' => 'O','Ù' => 'U','Ú' => 'U','Û' => 'U','Ü' => 'U','Ý' => 'Y','à' => 'a','á' => 'a','â' => 'a','ã' => 'a','ä' => 'a','å' => 'a','ç' => 'c','è' => 'e','é' => 'e','ê' => 'e','ë' => 'e','ì' => 'i','í' => 'i','î' => 'i','ï' => 'i','ñ' => 'n','ò' => 'o','ó' => 'o','ô' => 'o','õ' => 'o','ö' => 'o','ø' => 'o','ù' => 'u','ú' => 'u','û' => 'u','ü' => 'u','ý' => 'y','ÿ' => 'y'));
+	$clean_name = strtr($clean_name, array('Þ' => 'TH', 'þ' => 'th', 'Ð' => 'DH', 'ð' => 'dh', 'ß' => 'ss', 'Œ' => 'OE', 'œ' => 'oe', 'Æ' => 'AE', 'æ' => 'ae', 'µ' => 'u'));
+
+	// Enforce ASCII-only & no special characters
+	$clean_name = preg_replace(array('/\s+/', '/[^a-zA-Z0-9_\.\-]/'), array('.', ''), $clean_name);
+	$clean_name = preg_replace(array('/--+/', '/__+/', '/\.\.+/'), array('-', '_', '.'), $clean_name);
+	$clean_name = trim($clean_name, '-_.');
+
+	// Some file systems are case-sensitive (e.g. EXT4), some are not (e.g. NTFS). 
+	// We simply assume the latter to prevent confusion later.
+	// 
+	// Note 1: camelCased file names are converted to dotted all-lowercase: `camel.case`
+	// Note 2: we assume all file systems can handle filenames with multiple dots 
+	//         (after all only vintage file systems cannot, e.g. VMS/RMS, FAT/MSDOS)
+	$clean_name = preg_replace('/([a-z])([A-Z]+)/', '/$1.$2/', $clean_name);
+	$clean_name = strtolower($clean_name);
+
+	// And for operating systems which don't like large paths / filenames, clip the filename to the last 64 characters:
+	$clean_name = substr($clean_name, -64);
+	$clean_name = ltrim($clean_name, '-_.');
+    return $clean_name;
+}
+
+
+
 class BigUpload
 {
 	/**
@@ -50,8 +91,8 @@ class BigUpload
 	 * @param string $value Temporary filename
 	 */
 	public function setTempName($value = null) {
-		if($value) {
-			$this->tempName = $value;
+		if ($value) {
+			$this->tempName = sanitizeFileName($value);
 		}
 		else {
 			$this->tempName = mt_rand() . '.tmp';
@@ -104,31 +145,30 @@ class BigUpload
 	 * @return string JSON object with result of upload
 	 */
 	public function uploadFile() {
-
-		//Make sure the total file we're writing to hasn't surpassed the file size limit
-		if(file_exists($this->getTempDirectory() . $this->getTempName())) {
-			if(filesize($this->getTempDirectory() . $this->getTempName()) > self::MAX_SIZE) {
+		// Make sure the total file we're writing to hasn't surpassed the file size limit
+		if (file_exists($this->getTempDirectory() . $this->getTempName())) {
+			if (filesize($this->getTempDirectory() . $this->getTempName()) > self::MAX_SIZE) {
 				$this->abortUpload();
-				return json_encode(array(
-						'errorStatus' => 1,
-						'errorText' => 'File is too large.'
-					));
+				return array(
+					'errorStatus' => 413,
+					'errorText' => 'File is too large.'
+				);
 			}
 		}
 
-		//Open the raw POST data from php://input
+		// Open the raw POST data from php://input
 		$fileData = file_get_contents('php://input');
 
-		//Write the actual chunk to the larger file
+		// Write the actual chunk to the larger file
 		$handle = fopen($this->getTempDirectory() . $this->getTempName(), 'a');
 
 		fwrite($handle, $fileData);
 		fclose($handle);
 
-		return json_encode(array(
+		return array(
 			'key' => $this->getTempName(),
 			'errorStatus' => 0
-		));
+		);
 	}
 
 	/**
@@ -136,15 +176,16 @@ class BigUpload
 	 * @return string JSON object with result of deletion
 	 */
 	public function abortUpload() {
-		if(unlink($this->getTempDirectory() . $this->getTempName())) {
-			return json_encode(array('errorStatus' => 0));
+		if (unlink($this->getTempDirectory() . $this->getTempName())) {
+			return array(
+				'errorStatus' => 0
+			);
 		}
 		else {
-
-			return json_encode(array(
-				'errorStatus' => 1,
+			return array(
+				'errorStatus' => 405,
 				'errorText' => 'Unable to delete temporary file.'
-			));
+			);
 		}
 	}
 
@@ -154,14 +195,19 @@ class BigUpload
 	 * @return string JSON object with result of rename
 	 */
 	public function finishUpload($finalName) {
-		if(rename($this->getTempDirectory() . $this->getTempName(), $this->getMainDirectory() . $finalName)) {
-			return json_encode(array('errorStatus' => 0));
+		$dstName = sanitizeFileName($finalName);
+		$dstPath = $this->getMainDirectory() . $dstName;
+		if (rename($this->getTempDirectory() . $this->getTempName(), $dstPath)) {
+			return array(
+				'errorStatus' => 0,
+				'fileName' => $dstName
+			);
 		}
 		else {
-			return json_encode(array(
-				'errorStatus' => 1,
-				'errorText' => 'Unable to move file after uploading.'
-			));
+			return array(
+				'errorStatus' => 405,
+				'errorText' => 'Unable to move file to "' . $dstPath . '" after uploading.'
+			);
 		}
 	}
 
@@ -171,50 +217,139 @@ class BigUpload
 	 * with the errors printed on the form, but that is beyond the scope of this project as it is very application specific.
 	 * @return string Success or failure of upload
 	 */
-	public function postUnsupported() {
-		$name = $_FILES['bigUploadFile']['name'];
-		$size = $_FILES['bigUploadFile']['size'];
-		$tempName = $_FILES['bigUploadFile']['tmp_name'];
+	public function postUnsupported($files) {
+		if (empty($files)) {
+			$files = $_FILES['bigUploadFile'];
+		}
+		if (empty($files)) {
+			return array(
+				'errorStatus' => 550,
+				'errorText' => 'No BigUpload file uploads were specified.'
+			);
+		}
+		$name = sanitizeFileName($files['name']);
+		$size = $files['size'];
+		$tempName = $files['tmp_name'];
 
-		if(filesize($tempName) > self::MAX_SIZE) {
-			return 'File is too large.';
+		if (filesize($tempName) > self::MAX_SIZE) {
+			return array(
+				'errorStatus' => 413,
+				'errorText' => 'File is too large.'
+			);
 		}
 
-		if(move_uploaded_file($tempName, $this->getMainDirectory() . $name)) {
-			return 'File uploaded.';
+		$dstPath = $this->getMainDirectory() . $name;
+		if (move_uploaded_file($tempName, $dstPath)) {
+			return array(
+				'errorStatus' => 0,
+				'fileName' => $dstName,
+				'errorText' => 'File uploaded.'
+			);
 		}
 		else {
-			return 'There was an error uploading the file';
+			return array(
+				'errorStatus' => 405,
+				'errorText' => 'There was an error uploading the file to "' . $dstPath . '".'
+			);
 		}
-
 	}
 }
 
-//Instantiate the class
-$bigUpload = new BigUpload;
 
-//Set the temporary filename
-$tempName = null;
-if(isset($_GET['key'])) {
-	$tempName = $_GET['key'];
-}
-if(isset($_POST['key'])) {
-	$tempName = $_POST['key'];
-}
-$bigUpload->setTempName($tempName);
 
-switch($_GET['action']) {
+
+function main($action, $tempName, $finalFileName) {
+	// Instantiate the class
+	$bigUpload = new BigUpload;
+
+	$bigUpload->setTempName($tempName);
+
+	switch($action) {
 	case 'upload':
-		print $bigUpload->uploadFile();
-		break;
+		return $bigUpload->uploadFile();
+
 	case 'abort':
-		print $bigUpload->abortUpload();
-		break;
+		return $bigUpload->abortUpload();
+
 	case 'finish':
-		print $bigUpload->finishUpload($_POST['name']);
-		break;
+		return $bigUpload->finishUpload($finalFileName);
+
 	case 'post-unsupported':
-		print $bigUpload->postUnsupported();
-		break;
+		return $bigUpload->postUnsupported();
+
+	case 'help':
+		return array(
+			'errorStatus' => 552,
+			'errorText' => "You've reached the BigUpload gateway. Machines will know what to do."
+		);
+
+	default:
+		return array(
+			'errorStatus' => 550,
+			'errorText' => 'Unknown action. Internal failure.'
+		);
+	}
 }
-?>
+
+// Whatever happens, we always produce a JSON response
+header('Content-Type: application/json');
+
+try {
+	// Set the preferred temporary filename
+	$tempName = null;
+	if (isset($_GET['key'])) {
+		$tempName = $_GET['key'];
+	}
+	if (isset($_POST['key'])) {
+		$tempName = $_POST['key'];
+	}
+
+	// extract the required action from the request parameters
+	$action = 'help';
+	if (isset($_GET['action'])) {
+		$action = $_GET['action'];
+	}
+	if (isset($_POST['action'])) {
+		$action = $_POST['action'];
+	}
+
+	// and get the desired filename from the user 
+	// 
+	// Note: only really applicable for action=='finish' but for simplicity's sake 
+	//       we always grab it here and let main() do the rest.
+	$realFileName = null;
+	if (isset($_GET['name'])) {
+		$realFileName = $_GET['name'];
+	}
+	if (isset($_POST['name'])) {
+		$realFileName = $_POST['name'];
+	}
+
+	$response = main($action, $tempName, $realFileName);
+
+	$httpResponseCode = intval($response['errorStatus']);
+} catch (Exception $ex) {
+	$httpResponseCode = 550;
+	$response = array(
+		'errorStatus' => $httpResponseCode,
+		'errorText' => 'Internal failure: ' . $ex->getMessage()
+	);
+}
+
+if ($httpResponseCode !== 0 /* HTTP OK */) {
+	// Only accept 4xx and 5xx error codes from the BigUpload class and helper functions.
+	// Produce the custom HTTP error code 550 when something very much out of the ordinary 
+	// occurred.
+	if ($httpResponseCode < 400 || $httpResponseCode > 599) {
+		$httpResponseCode = 550;
+	}
+} else {
+	$httpResponseCode = 200; // HTTP OK
+}
+
+// http://stackoverflow.com/questions/3258634/php-how-to-send-http-response-code
+http_response_code($httpResponseCode);
+
+print json_encode($response);
+die();
+
