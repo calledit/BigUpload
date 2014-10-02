@@ -29,7 +29,7 @@ function sanitizeFileName($filename) {
 	// Note 1: camelCased file names are converted to dotted all-lowercase: `camel.case`
 	// Note 2: we assume all file systems can handle filenames with multiple dots 
 	//         (after all only vintage file systems cannot, e.g. VMS/RMS, FAT/MSDOS)
-	$clean_name = preg_replace('/([a-z])([A-Z]+)/', '/$1.$2/', $clean_name);
+	$clean_name = preg_replace('/([a-z])([A-Z]+)/', '$1.$2', $clean_name);
 	$clean_name = strtolower($clean_name);
 
 	// And for operating systems which don't like large paths / filenames, clip the filename to the last 64 characters:
