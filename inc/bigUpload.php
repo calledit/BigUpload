@@ -291,7 +291,7 @@ class BigUpload
 
 
 
-function main($action, $tempName, $finalFileName) {
+function main($action, $tempName, $finalFileName, $files) {
 	// Instantiate the class
 	$bigUpload = new BigUpload;
 
@@ -308,7 +308,8 @@ function main($action, $tempName, $finalFileName) {
 		return $bigUpload->finishUpload($finalFileName);
 
 	case 'post-unsupported':
-		return $bigUpload->postUnsupported();
+	case 'vanilla':
+		return $bigUpload->postUnsupported($files);
 
 	case 'help':
 		return array(
@@ -358,7 +359,15 @@ try {
 		$realFileName = $_POST['name'];
 	}
 
-	$response = main($action, $tempName, $realFileName);
+	// Vanilla DropZone hack:
+	$files = null;
+	if (!empty($_FILES['file']) && $action === 'help') {
+		$files = $_FILES['file'];
+		$action = 'vanilla';
+	}
+	
+
+	$response = main($action, $tempName, $realFileName, $files);
 
 	$httpResponseCode = intval($response['errorStatus']);
 } catch (Exception $ex) {
