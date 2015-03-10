@@ -1,48 +1,19 @@
-function bigUpload () {
+function bigUpload (inputField, OnUploadStatus) {
 
 	//These are the main config variables and should be able to take care of most of the customization
 	this.settings = {
-		//The id of the file input
-		'inputField': 'bigUploadFile',
+		//The file input
+		'inputField': inputField,
 
-		//The id of the form with the file upload.
-		//This should be a valid html form (see index.html) so there is a fallback for unsupported browsers
-		'formId': 'bigUploadForm',
+		//The form with the file upload.
+		//This should be a valid html form so there is a fallback for unsupported browsers
+		'form': inputField.form,
 
-		//The id of the progress bar
-		//Width of this element will change based on progress
-		//Content of this element will display a percentage
-		//See bigUpload.progressUpdate() to change this code
-		'progressBarField': 'bigUploadProgressBarFilled',
-
-		//The id of the time remaining field
-		//Content of this element will display the estimated time remaining for the upload
-		//See bigUpload.progressUpdate() to change this code
-		'timeRemainingField': 'bigUploadTimeRemaining',
-
-		//The id of the text response field
-		//Content of this element will display the response from the server on success or error
-		'responseField': 'bigUploadResponse',
-
-		//The id of the submit button
-		//This is then changed to become the pause/resume button based on the status of the upload
-		'submitButton': 'bigUploadSubmit',
-
-		//Color of the background of the progress bar
-		//This must also be defined in the progressBarField css, but it's used here to reset the color after an error
-		//Default: green
-		'progressBarColor': '#5bb75b',
-
-		//Color of the background of the progress bar when an error is triggered
-		//Default: red
-		'progressBarColorError': '#da4f49',
+		//A function that gets called when there is upload status info
+		'OnUploadStatus': OnUploadStatus,
 
 		//Path to the php script for handling the uploads
-		'scriptPath': 'inc/bigUpload.php',
-
-		//Additional URL variables to be passed to the script path
-		//ex: &foo=bar
-		'scriptPathParams': '',
+		'scriptPath': inputField.form.action,
 
 		//Size of chunks to upload (in bytes)
 		//Default: 1MB
@@ -52,6 +23,13 @@ function bigUpload () {
 		//Default: 2GB
 		'maxFileSize': 2147483648
 	};
+
+	//Fix the url so that ? are not used twice
+	if(this.settings.scriptPath.indexOf('?') == -1){
+		this.settings.scriptPath += '?';
+	}else{
+		this.settings.scriptPath += '&';
+	}
 
 	//Upload specific variables
 	this.uploadData = {
@@ -64,11 +42,6 @@ function bigUpload () {
 		'key': 0,
 		'timeStart': 0,
 		'totalTime': 0
-	};
-
-	//Success callback
-	this.success = function(response) {
-
 	};
 
 	parent = this;
@@ -114,7 +87,7 @@ function bigUpload () {
 
 		//If the user is using an unsupported browser, the form just submits as a regular form
 		if (!window.File || !window.FileReader || !window.FileList || !window.Blob) {
-			this.$(this.settings.formId).submit();
+			this.$(this.settings.form).submit();
 			return;
 		}
 
@@ -122,15 +95,11 @@ function bigUpload () {
 		this.resetKey();
 		this.uploadData.uploadStarted = true;
 
-		//Some HTML tidying
-		//Reset the background color of the progress bar in case it was changed by any earlier errors
-		//Change the Upload button to a Pause button
-		this.$(this.settings.progressBarField).style.backgroundColor = this.settings.progressBarColor;
-		this.$(this.settings.responseField).textContent = 'Uploading...';
-		this.$(this.settings.submitButton).value = 'Pause';
+		//Inform about upload starting
+		OnUploadStatus('starting', 0);
 
 		//Alias the file input object to this.uploadData
-		this.uploadData.file = this.$(this.settings.inputField).files[0];
+		this.uploadData.file = this.settings.inputField.files[0];
 
 		//Check the filesize. Obviously this is not very secure, so it has another check in inc/bigUpload.php
 		//But this should be good enough to catch any immediate errors
@@ -155,6 +124,8 @@ function bigUpload () {
 
 		//Check if the upload has been cancelled by the user
 		if(this.uploadData.aborted === true) {
+			parent.resetKey();
+			OnUploadStatus('cancel', 0);
 			return;
 		}
 
@@ -181,8 +152,8 @@ function bigUpload () {
 			//this.uploadData.key is then populated with the filename to use for subsequent requests
 			//When this method sends a valid filename (i.e. key != 0), the server will just append the data being sent to that file.
 			xhr = new XMLHttpRequest();
-			xhr.open("POST", parent.settings.scriptPath + '?action=upload&key=' + parent.uploadData.key + parent.settings.scriptPathParams, true);
-			xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+			xhr.open("POST", parent.settings.scriptPath + 'action=upload&key=' + parent.uploadData.key, true);
+			xhr.setRequestHeader("Content-type", "application/x-www-form-raw-data");
 
 			xhr.onreadystatechange = function() {
 				if(xhr.readyState == 4) {
@@ -230,7 +201,7 @@ function bigUpload () {
 	this.sendFileData = function() {
 		var data = 'key=' + this.uploadData.key + '&name=' + this.uploadData.file.name;
 		xhr = new XMLHttpRequest();
-		xhr.open("POST", parent.settings.scriptPath + '?action=finish', true);
+		xhr.open("POST", parent.settings.scriptPath + 'action=finish', true);
 		xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 
 		xhr.onreadystatechange = function() {
@@ -246,11 +217,8 @@ function bigUpload () {
 					//Reset the upload-specific data so we can process another upload
 					parent.resetKey();
 
-					//Change the submit button text so it's ready for another upload and spit out a sucess message
-					parent.$(parent.settings.submitButton).value = 'Start Upload';
-					parent.printResponse('File uploaded successfully.', false);
-
-					parent.success(response);
+					//Report that the upload is done
+					OnUploadStatus('done', 100);
 				}
 			};
 
@@ -265,7 +233,7 @@ function bigUpload () {
 		this.uploadData.aborted = true;
 		var data = 'key=' + this.uploadData.key;
 		xhr = new XMLHttpRequest();
-		xhr.open("POST", this.settings.scriptPath + '?action=abort', true);
+		xhr.open("POST", this.settings.scriptPath + 'action=abort', true);
 		xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 
 		xhr.onreadystatechange = function() {
@@ -278,6 +246,7 @@ function bigUpload () {
 						return;
 					}
 					parent.printResponse('File upload was cancelled.', true);
+					OnUploadStatus('canceling', 0);
 				}
 
 			};
@@ -293,15 +262,14 @@ function bigUpload () {
 	//because this method won't delete the file from the temp directory if the user pauses and then leaves the page.
 	this.pauseUpload = function() {
 		this.uploadData.paused = true;
-		this.printResponse('', false);
-		this.$(this.settings.submitButton).value = 'Resume';
+		OnUploadStatus('pause', 0);
 	};
 
 	//Resume the upload
 	//Undoes the doings of this.pauseUpload and then re-enters the loop at the last chunk uploaded
 	this.resumeUpload = function() {
 		this.uploadData.paused = false;
-		this.$(this.settings.submitButton).value = 'Pause';
+		OnUploadStatus('resume', 0);
 		this.sendFile(this.uploadData.pauseChunk);
 	};
 
@@ -311,8 +279,8 @@ function bigUpload () {
 	this.progressUpdate = function(progress) {
 
 		var percent = Math.ceil((progress / this.uploadData.numberOfChunks) * 100);
-		this.$(this.settings.progressBarField).style.width = percent + '%';
-		this.$(this.settings.progressBarField).textContent = percent + '%';
+		//Inform about upload starting
+		OnUploadStatus('progress', percent);
 
 		//Calculate the estimated time remaining
 		//Only run this every five chunks, otherwise the time remaining jumps all over the place (see: http://xkcd.com/612/)
@@ -320,24 +288,23 @@ function bigUpload () {
 
 			//Calculate the total time for all of the chunks uploaded so far
 			this.uploadData.totalTime += (new Date().getTime() - this.uploadData.timeStart);
-			console.log(this.uploadData.totalTime);
+			//console.log(this.uploadData.totalTime);
 
 			//Estimate the time remaining by finding the average time per chunk upload and
 			//multiplying it by the number of chunks remaining, then convert into seconds
 			var timeLeft = Math.ceil((this.uploadData.totalTime / progress) * (this.uploadData.numberOfChunks - progress) / 100);
-			console.log(Math.ceil(((this.uploadData.totalTime / progress) * this.settings.chunkSize) / 1024) + 'kb/s');
+			//console.log(Math.ceil(((this.uploadData.totalTime / progress) * this.settings.chunkSize) / 1024) + 'kb/s');
 
-			//Update this.settings.timeRemainingField with the estimated time remaining
-			this.$(this.settings.timeRemainingField).textContent = timeLeft + ' seconds remaining';
+			OnUploadStatus('timeleft', percent, timeLeft + ' seconds remaining');
 		}
 	};
 
 	//Simple response/error handler
 	this.printResponse = function(responseText, error) {
-		this.$(this.settings.responseField).textContent = responseText;
-		this.$(this.settings.timeRemainingField).textContent = '';
 		if(error === true) {
-			this.$(this.settings.progressBarField).style.backgroundColor = this.settings.progressBarColorError;
+			OnUploadStatus('error', 0, responseText);
+		}else{
+			OnUploadStatus('server_response', 0, responseText);
 		}
 	};
 }
