@@ -38,19 +38,74 @@ function sanitizeFileName($filename) {
     return $clean_name;
 }
 
+if (!function_exists('http_response_code')) {
+	function http_response_code($code = NULL) {
+
+		if ($code !== NULL) {
+
+			switch ($code) {
+				case 100: $text = 'Continue'; break;
+				case 101: $text = 'Switching Protocols'; break;
+				case 200: $text = 'OK'; break;
+				case 201: $text = 'Created'; break;
+				case 202: $text = 'Accepted'; break;
+				case 203: $text = 'Non-Authoritative Information'; break;
+				case 204: $text = 'No Content'; break;
+				case 205: $text = 'Reset Content'; break;
+				case 206: $text = 'Partial Content'; break;
+				case 300: $text = 'Multiple Choices'; break;
+				case 301: $text = 'Moved Permanently'; break;
+				case 302: $text = 'Moved Temporarily'; break;
+				case 303: $text = 'See Other'; break;
+				case 304: $text = 'Not Modified'; break;
+				case 305: $text = 'Use Proxy'; break;
+				case 400: $text = 'Bad Request'; break;
+				case 401: $text = 'Unauthorized'; break;
+				case 402: $text = 'Payment Required'; break;
+				case 403: $text = 'Forbidden'; break;
+				case 404: $text = 'Not Found'; break;
+				case 405: $text = 'Method Not Allowed'; break;
+				case 406: $text = 'Not Acceptable'; break;
+				case 407: $text = 'Proxy Authentication Required'; break;
+				case 408: $text = 'Request Time-out'; break;
+				case 409: $text = 'Conflict'; break;
+				case 410: $text = 'Gone'; break;
+				case 411: $text = 'Length Required'; break;
+				case 412: $text = 'Precondition Failed'; break;
+				case 413: $text = 'Request Entity Too Large'; break;
+				case 414: $text = 'Request-URI Too Large'; break;
+				case 415: $text = 'Unsupported Media Type'; break;
+				case 500: $text = 'Internal Server Error'; break;
+				case 501: $text = 'Not Implemented'; break;
+				case 502: $text = 'Bad Gateway'; break;
+				case 503: $text = 'Service Unavailable'; break;
+				case 504: $text = 'Gateway Time-out'; break;
+				case 505: $text = 'HTTP Version not supported'; break;
+				default:
+					exit('Unknown http status code "' . htmlentities($code) . '"');
+				break;
+			}
+
+			$protocol = (isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');
+
+			header($protocol . ' ' . $code . ' ' . $text);
+
+			$GLOBALS['http_response_code'] = $code;
+
+		} else {
+
+			$code = (isset($GLOBALS['http_response_code']) ? $GLOBALS['http_response_code'] : 200);
+
+		}
+
+		return $code;
+
+	}
+}
 
 
 class BigUpload
 {
-	/**
-	 * Temporary directory for uploading files
-	 */
-	const TEMP_DIRECTORY = '../files/tmp/';
-
-	/**
-	 * Directory files will be moved to after the upload is completed
-	 */
-	const MAIN_DIRECTORY = '../files/';
 
 	/**
 	 * Max allowed filesize. This is for unsupported browsers and
@@ -58,7 +113,7 @@ class BigUpload
 	 *
 	 * This must match the value specified in main.js
 	 */
-	const MAX_SIZE = 2147483648;
+	private $MAX_SIZE;
 
 	/**
 	 * Temporary directory
@@ -81,9 +136,10 @@ class BigUpload
 	/**
 	 * Constructor function, sets the temporary directory and main directory
 	 */
-	public function __construct() {
-		$this->setTempDirectory(self::TEMP_DIRECTORY);
-		$this->setMainDirectory(self::MAIN_DIRECTORY);
+	public function __construct($TempDir, $DestinationDir, $MAX_SIZE=2147483648) {
+		$this->MAX_SIZE = $MAX_SIZE;
+		$this->setTempDirectory($TempDir);
+		$this->setMainDirectory($DestinationDir);
 	}
 
 	/**
@@ -147,15 +203,15 @@ class BigUpload
 	public function uploadFile() {
 		// Make sure the total file we're writing to hasn't surpassed the file size limit
 		$tmpPath = $this->getTempDirectory() . $this->getTempName();
-		if (@file_exists($tmpPath)) {
-			$fsize = @filesize($tmpPath);
+		if (file_exists($tmpPath)) {
+			$fsize = filesize($tmpPath);
 			if ($fsize === false) {
 				return array(
 					'errorStatus' => 553,
 					'errorText' => 'File part access error.'
 				);
 			}
-			if ($fsize > self::MAX_SIZE) {
+			if ($fsize > $this->MAX_SIZE) {
 				$this->abortUpload();
 				return array(
 					'errorStatus' => 413,
@@ -165,7 +221,7 @@ class BigUpload
 		}
 
 		// Open the raw POST data from php://input
-		$fileData = @file_get_contents('php://input');
+		$fileData = file_get_contents('php://input');
 		if ($fileData === false) {
 			return array(
 				'errorStatus' => 552,
@@ -182,8 +238,8 @@ class BigUpload
 			);
 		}
 
-		$rv = @fwrite($handle, $fileData);
-		@fclose($handle);
+		$rv = fwrite($handle, $fileData);
+		fclose($handle);
 		if ($rv === false) {
 			return array(
 				'errorStatus' => 554,
@@ -202,7 +258,7 @@ class BigUpload
 	 * @return string JSON object with result of deletion
 	 */
 	public function abortUpload() {
-		if (@unlink($this->getTempDirectory() . $this->getTempName())) {
+		if (unlink($this->getTempDirectory() . $this->getTempName())) {
 			return array(
 				'errorStatus' => 0
 			);
@@ -223,7 +279,7 @@ class BigUpload
 	public function finishUpload($finalName) {
 		$dstName = sanitizeFileName($finalName);
 		$dstPath = $this->getMainDirectory() . $dstName;
-		if (@rename($this->getTempDirectory() . $this->getTempName(), $dstPath)) {
+		if (rename($this->getTempDirectory() . $this->getTempName(), $dstPath.$dstName)) {
 			return array(
 				'errorStatus' => 0,
 				'fileName' => $dstName
@@ -257,14 +313,14 @@ class BigUpload
 		$size = $files['size'];
 		$tempName = $files['tmp_name'];
 
-		$fsize = @filesize($tempName);
+		$fsize = filesize($tempName);
 		if ($fsize === false) {
 			return array(
 				'errorStatus' => 553,
 				'errorText' => 'File part access error.'
 			);
 		}
-		if ($fsize > self::MAX_SIZE) {
+		if ($fsize > $this->MAX_SIZE) {
 			return array(
 				'errorStatus' => 413,
 				'errorText' => 'File is too large.'
@@ -272,10 +328,10 @@ class BigUpload
 		}
 
 		$dstPath = $this->getMainDirectory() . $name;
-		if (@move_uploaded_file($tempName, $dstPath)) {
+		if (move_uploaded_file($tempName, $dstPath)) {
 			return array(
 				'errorStatus' => 0,
-				'fileName' => $dstName,
+				'fileName' => $name,
 				'errorText' => 'File uploaded.'
 			);
 		}
@@ -286,112 +342,108 @@ class BigUpload
 			);
 		}
 	}
-}
+	public function CheckIncomingFile() {
+		if(isset($_GET['actionold'])){
+			if(isset($_GET['action'])){
+				if(isset($_POST['key'])){
+					return true;
+				}elseif(isset($_GET['key'])){
+					return true;
+				}elseif($_GET['action'] == 'finish'){
+					return true;
+				}
+			}elseif($_GET['actionold'] == 'post-unsupported'){
+				$_GET['action'] = $_GET['actionold'];
+				return true;
+			}
+		}
+		if(isset($_POST['action'])){
+			return true;
+		}
+		return false;
+	}
+	public function HandleIncomingFile() {
+		$tempName = null;
+		if (isset($_GET['key'])) {
+			$tempName = $_GET['key'];
+		}
+		if (isset($_POST['key'])) {
+			$tempName = $_POST['key'];
+		}
 
+		// extract the required action from the request parameters
+		$action = 'help';
+		if (isset($_GET['action'])) {
+			$action = $_GET['action'];
+		}
+		if (isset($_POST['action'])) {
+			$action = $_POST['action'];
+		}
 
+		// and get the desired filename from the user 
+		// 
+		// Note: only really applicable for action=='finish' but for simplicity's sake 
+		//       we always grab it here and let handleRequest() do the rest.
+		$realFileName = null;
+		if (isset($_GET['name'])) {
+			$realFileName = $_GET['name'];
+		}
+		if (isset($_POST['name'])) {
+			$realFileName = $_POST['name'];
+		}
 
+		// Vanilla DropZone hack:
+		$files = null;
+		if (!empty($_FILES['file']) && $action === 'help') {
+			$files = $_FILES['file'];
+			$action = 'vanilla';
+		}
+		
 
-function main($action, $tempName, $finalFileName, $files) {
-	// Instantiate the class
-	$bigUpload = new BigUpload;
+		$response = $this->handleRequest($action, $tempName, $realFileName, $files);
 
-	$bigUpload->setTempName($tempName);
+		$httpResponseCode = intval($response['errorStatus']);
+		
+		if($httpResponseCode != 0){
+			http_response_code($httpResponseCode);
+		}
 
-	switch($action) {
-	case 'upload':
-		return $bigUpload->uploadFile();
+		print json_encode($response);
+		exit();
 
-	case 'abort':
-		return $bigUpload->abortUpload();
+	}
+	private function handleRequest($action, $tempName, $finalFileName, $files) {
+		// Instantiate the class
 
-	case 'finish':
-		return $bigUpload->finishUpload($finalFileName);
+		header('Content-Type: application/json');
+		$this->setTempName($tempName);
 
-	case 'post-unsupported':
-	case 'vanilla':
-		return $bigUpload->postUnsupported($files);
+		switch($action) {
+		case 'upload':
+			return $this->uploadFile();
 
-	case 'help':
-		return array(
-			'errorStatus' => 552,
-			'errorText' => "You've reached the BigUpload gateway. Machines will know what to do."
-		);
+		case 'abort':
+			return $this->abortUpload();
 
-	default:
-		return array(
-			'errorStatus' => 550,
-			'errorText' => 'Unknown action. Internal failure.'
-		);
+		case 'finish':
+			return $this->finishUpload($finalFileName);
+
+		case 'post-unsupported':
+		case 'vanilla':
+			return $this->postUnsupported($files);
+
+		case 'help':
+			return array(
+				'errorStatus' => 552,
+				'errorText' => "You've reached the BigUpload gateway. Machines will know what to do."
+			);
+
+		default:
+			return array(
+				'errorStatus' => 550,
+				'errorText' => 'Unknown action. Internal failure.'
+			);
+		}
 	}
 }
-
-// Whatever happens, we always produce a JSON response
-header('Content-Type: application/json');
-
-try {
-	// Set the preferred temporary filename
-	$tempName = null;
-	if (isset($_GET['key'])) {
-		$tempName = $_GET['key'];
-	}
-	if (isset($_POST['key'])) {
-		$tempName = $_POST['key'];
-	}
-
-	// extract the required action from the request parameters
-	$action = 'help';
-	if (isset($_GET['action'])) {
-		$action = $_GET['action'];
-	}
-	if (isset($_POST['action'])) {
-		$action = $_POST['action'];
-	}
-
-	// and get the desired filename from the user 
-	// 
-	// Note: only really applicable for action=='finish' but for simplicity's sake 
-	//       we always grab it here and let main() do the rest.
-	$realFileName = null;
-	if (isset($_GET['name'])) {
-		$realFileName = $_GET['name'];
-	}
-	if (isset($_POST['name'])) {
-		$realFileName = $_POST['name'];
-	}
-
-	// Vanilla DropZone hack:
-	$files = null;
-	if (!empty($_FILES['file']) && $action === 'help') {
-		$files = $_FILES['file'];
-		$action = 'vanilla';
-	}
-	
-
-	$response = main($action, $tempName, $realFileName, $files);
-
-	$httpResponseCode = intval($response['errorStatus']);
-} catch (Exception $ex) {
-	$httpResponseCode = 550;
-	$response = array(
-		'errorStatus' => $httpResponseCode,
-		'errorText' => 'Internal failure: ' . $ex->getMessage()
-	);
-}
-
-if ($httpResponseCode !== 0 /* HTTP OK */) {
-	// Only accept 4xx and 5xx error codes from the BigUpload class and helper functions.
-	// Produce the custom HTTP error code 550 when something very much out of the ordinary 
-	// occurred.
-	if ($httpResponseCode < 400 || $httpResponseCode > 599) {
-		$httpResponseCode = 550;
-	}
-} else {
-	$httpResponseCode = 200; // HTTP OK
-}
-
-// http://stackoverflow.com/questions/3258634/php-how-to-send-http-response-code
-http_response_code($httpResponseCode);
-
-print json_encode($response);
-die();
 
