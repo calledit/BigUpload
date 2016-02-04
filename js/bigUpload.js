@@ -21,7 +21,7 @@ function bigUpload (inputField, OnUploadStatus) {
 
 		//Max file size allowed
 		//Default: 2GB
-		'maxFileSize': 2147483648
+		'maxFileSize': 214748364800
 	};
 
 	//Fix the url so that ? are not used twice

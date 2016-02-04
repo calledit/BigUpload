@@ -136,7 +136,7 @@ class BigUpload
 	/**
 	 * Constructor function, sets the temporary directory and main directory
 	 */
-	public function __construct($TempDir, $DestinationDir, $MAX_SIZE=2147483648) {
+	public function __construct($TempDir, $DestinationDir, $MAX_SIZE=214748364800) {
 		$this->MAX_SIZE = $MAX_SIZE;
 		$this->setTempDirectory($TempDir);
 		$this->setMainDirectory($DestinationDir);
@@ -279,7 +279,7 @@ class BigUpload
 	public function finishUpload($finalName) {
 		$dstName = sanitizeFileName($finalName);
 		$dstPath = $this->getMainDirectory() . $dstName;
-		if (rename($this->getTempDirectory() . $this->getTempName(), $dstPath.$dstName)) {
+		if (rename($this->getTempDirectory() . $this->getTempName(), $dstPath)) {
 			return array(
 				'errorStatus' => 0,
 				'fileName' => $dstName
