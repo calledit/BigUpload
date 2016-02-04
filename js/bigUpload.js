@@ -20,7 +20,7 @@ function bigUpload (inputField, OnUploadStatus) {
 		'chunkSize': 1000000,
 
 		//Max file size allowed
-		//Default: 2GB
+		//Default: 200GB
 		'maxFileSize': 214748364800
 	};
 
@@ -112,15 +112,15 @@ function bigUpload (inputField, OnUploadStatus) {
 		//Calculate the total number of file chunks
 		this.uploadData.numberOfChunks = Math.ceil(fileSize / this.settings.chunkSize);
 
+		//Set the time for the beginning of the upload, used for calculating time remaining
+		this.uploadData.timeStart = new Date().getTime();
+
 		//Start the upload
 		this.sendFile(0);
 	};
 
 	//Main upload method
 	this.sendFile = function (chunk) {
-
-		//Set the time for the beginning of the upload, used for calculating time remaining
-		this.uploadData.timeStart = new Date().getTime();
 
 		//Check if the upload has been cancelled by the user
 		if(this.uploadData.aborted === true) {
@@ -278,7 +278,8 @@ function bigUpload (inputField, OnUploadStatus) {
 	//and multiplying it by the number of chunks remaining.
 	this.progressUpdate = function(progress) {
 
-		var percent = Math.ceil((progress / this.uploadData.numberOfChunks) * 100);
+		var ExactPercent = (progress / this.uploadData.numberOfChunks);
+		var percent = Math.ceil(ExactPercent * 100);
 		//Inform about upload starting
 		OnUploadStatus('progress', percent);
 
@@ -287,13 +288,11 @@ function bigUpload (inputField, OnUploadStatus) {
 		if(progress % 5 === 0) {
 
 			//Calculate the total time for all of the chunks uploaded so far
-			this.uploadData.totalTime += (new Date().getTime() - this.uploadData.timeStart);
-			//console.log(this.uploadData.totalTime);
+			this.uploadData.totalTime = (new Date().getTime() - this.uploadData.timeStart);
 
-			//Estimate the time remaining by finding the average time per chunk upload and
-			//multiplying it by the number of chunks remaining, then convert into seconds
-			var timeLeft = Math.ceil((this.uploadData.totalTime / progress) * (this.uploadData.numberOfChunks - progress) / 100);
-			//console.log(Math.ceil(((this.uploadData.totalTime / progress) * this.settings.chunkSize) / 1024) + 'kb/s');
+			//Estimate the time remaining
+			estimatedTotalTime = this.uploadData.totalTime/ExactPercent
+			timeLeft = Math.ceil((estimatedTotalTime-this.uploadData.totalTime)/1000);
 
 			OnUploadStatus('timeleft', percent, timeLeft + ' seconds remaining');
 		}
