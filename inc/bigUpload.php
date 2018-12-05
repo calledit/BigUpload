@@ -409,6 +409,10 @@ class BigUpload
 		}
 
 		print json_encode($response);
+		//If the upload is done and it went fine let the application know
+		if(($action == 'finish' || $action == 'post-unsupported') && $response['errorStatus'] == 0){
+			return $response['fileName'];
+		}
 		exit();
 
 	}
