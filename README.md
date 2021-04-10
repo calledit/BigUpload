@@ -16,15 +16,15 @@ if($Uploder->CheckIncomingFile()){
 
 ```html
 <form action="?actionold=post-unsupported" method="post" enctype="multipart/form-data">
-	<input type="file" name="upload_file" />
-	<div>
-		<input id="uploadButton" type="button" value="Start Upload" onclick="upload()" />
-	  <input type="button" value="Cancel" onclick="abort()" />
+  <input type="file" name="upload_file" />
+  <div>
+    <input id="uploadButton" type="button" value="Start Upload" onclick="upload()" />
+    <input type="button" value="Cancel" onclick="abort()" />
   </div>
 </form>
 <script>
   function OnUploadStatusInfo(status, percent, textinfo){
-	console.log('New upload status:', status, 'Percent uploaded:', percent, 'TextInfo:', textinfo);
+    console.log('New upload status:', status, 'Percent uploaded:', percent, 'TextInfo:', textinfo);
   }
   
   //setup bigUpload for the file element
@@ -32,10 +32,10 @@ if($Uploder->CheckIncomingFile()){
   
   //handle upload and abort buttons
   function upload() {
-	bigUpload.fire();
+    bigUpload.fire();
   }
   function abort() {
     bigUpload.abortFileUpload();
   }
-  </script>
+</script>
 ```
