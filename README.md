@@ -24,7 +24,7 @@ if($Uploder->CheckIncomingFile()){
 </form>
 <script>
   function OnUploadStatusInfo(status, percent, textinfo){
-				console.log('New upload status:', status, 'Percent uploaded:', percent, 'TextInfo:', textinfo);
+	console.log('New upload status:', status, 'Percent uploaded:', percent, 'TextInfo:', textinfo);
   }
   
   //setup bigUpload for the file element
@@ -32,10 +32,10 @@ if($Uploder->CheckIncomingFile()){
   
   //handle upload and abort buttons
   function upload() {
-		bigUpload.fire();
-	}
-	function abort() {
-	  bigUpload.abortFileUpload();
+	bigUpload.fire();
+  }
+  function abort() {
+    bigUpload.abortFileUpload();
   }
   </script>
 ```
